@@ -1,16 +1,12 @@
 import os
-from pickle import load
-from selectors import SelectorKey
-import sys
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix
 import h5py
 import time
-from scipy.sparse import load_npz, csr_matrix
+from scipy.sparse import csr_matrix
 
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 class ChSplitDS(Dataset):
     def __init__(self, name, ref='pca'): 
@@ -23,7 +19,7 @@ class ChSplitDS(Dataset):
         g_atac = f['atac']
         self.atac_data = csr_matrix((g_atac['data'][:], g_atac['indices'][:], g_atac['indptr'][:]), g_atac.attrs['shape'])
         self.padto1 = self.atac_data.shape[-1]
-        self.padto2 = g_atac['chrom_size'][:]
+        self.padto2 = tuple(g_atac['chrom_size'][:])
         self.cell_label = np.array(f['cells']['labels'][:]).astype(str)
         self.rna_depth = f['cells']['rna_depth'][:]
         f.close()
