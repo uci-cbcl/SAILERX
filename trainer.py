@@ -22,19 +22,12 @@ from utils import apprx_kl, get_cos
 
 
 WARM_UP = 10
-CYCLE = 100 #100 150
-STOP_CYCLE = 400 #400 #600
-STABLE = 430 #430 #630
+CYCLE = 100
+STOP_CYCLE = 400 
 LAMBDA = 1
 SAILER = False
-RANDOM = False
-PROB = 0.1
 LR_LMD = 0.995
-MSE_WEIGHT = 20
-FIXED = False
-START_SEMI = 200
-USE_STD = False
-WITH_WEIGHT = True
+MSE_WEIGHT = 100
 
         
 class PlTrainer(object):
@@ -91,7 +84,6 @@ class PlTrainer(object):
         if args.optimizer == 'adam':
             self.optim = optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.cycle = CYCLE * self.dataset.__len__() // self.batch_size // len(args.cuda_dev)
-        self.dataset.random = RANDOM
         lr_lmd = lambda epoch: LR_LMD**epoch
         self.le_scdlr = LambdaLR(self.optim, lr_lambda=lr_lmd)
         self.le_scdlr.last_epoch = self.start_epoch-1
@@ -134,12 +126,7 @@ class PlTrainer(object):
             for x1, x2, l, d1, d2 in self.dataloader:
                 x1 = x1.float().to(self.device)
                 x2 = x2.float().to(self.device)
-                if RANDOM:
-                    probs = torch.ones_like(x2) * PROB
-                    mask = torch.bernoulli(probs)
-                    x2_in = torch.mul(x2, mask).float()
-                else:
-                    x2_in = x2
+                x2_in = x2
                 d2 = d2.log()
                 d2 = (d2 - self.dataset.atac_mean) / self.dataset.atac_std
                 d2 = d2.unsqueeze(1).float().to(self.device)
@@ -175,10 +162,8 @@ class PlTrainer(object):
         for epoch in range(self.start_epoch, self.start_epoch + self.max_epoch):
             epoch_kl, epoch_rec, epoch_align, epoch_mkl = [], [], [], []
             for x1, x2, l, mse_w, d2 in self.dataloader:
-                if epoch > STOP_CYCLE and epoch < STABLE:
+                if epoch > STOP_CYCLE:
                     kl_w = 1
-                elif epoch > STABLE:
-                    kl_w = 0
                 else:
                     kl_w = np.round(np.min([2 * (total_iter -(total_iter//self.cycle) * self.cycle) / self.cycle, 1]), 3)
                 x1 = x1.float().to(self.device)
@@ -193,18 +178,10 @@ class PlTrainer(object):
                 var2 = torch.ones_like(logvar_2)
                 kld_z2 = kl(Normal(mu_2, torch.exp(logvar_2).sqrt()), Normal(mean2, var2)).sum()
                 c1, c2 = get_cos(x1,mu_2)
-                if not FIXED:
-                    kld_algn = F.mse_loss(c1, c2, reduction='none')
-                    if USE_STD:
-                        dd = logvar_2.exp().clamp_max(2)
-                    elif WITH_WEIGHT:
-                        dd = mse_w * 5
-                    else:
-                        dd = 20 / dd
-                    W = torch.matmul(dd, dd.T)
-                    kld_algn = torch.multiply(kld_algn, W).sum()
-                else:
-                    kld_algn = F.mse_loss(c1, c2, reduction='sum') 
+                kld_algn = F.mse_loss(c1, c2, reduction='none')
+                dd = mse_w
+                W = torch.matmul(dd, dd.T)
+                kld_algn = torch.multiply(kld_algn, W).sum()
                 kld_z = kld_z2
                 pos_weight = torch.Tensor([self.pos_w]).to(self.device)
                 bce = F.binary_cross_entropy_with_logits(rec, x2, weight=pos_weight, reduction='sum')
