@@ -47,7 +47,9 @@ parser.add_argument('--GAMMA', default=6000, type=float, help='gamma value') #
 args = parser.parse_args()
 
 solver = PlTrainer(args)
-
-
-solver.warm_up()
-solver.train()
+if args.train_type== 'multi':
+    solver.warm_up()
+    solver.train()
+else:
+    solver.hybrid_warmup()
+    solver.hybrid_train()

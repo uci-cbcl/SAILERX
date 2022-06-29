@@ -154,6 +154,48 @@ class PlTrainer(object):
         self.pbar.write("[Warmup Finished]")
         self.pbar.close()
 
+    def hybrid_warmup(self):
+        if not os.path.exists(self.ckpt_dir):
+            print(f'Making dir {self.ckpt_dir}')
+            os.makedirs(self.ckpt_dir)
+        self.model.train()
+        self.pbar = tqdm(total=WARM_UP)
+        total_iter = 0
+        for step in range(WARM_UP):
+            for x1, x2, l, _, d2, x3, d3 in self.dataloader:
+                self.optim.zero_grad()
+                x1 = x1.float().to(self.device)
+                x2 = x2.float().to(self.device)
+                x3 = x3.float().to(self.device)
+                d2 = d2.log()
+                d2 = (d2 - self.dataset.atac_mean) / self.dataset.atac_std
+                d2 = d2.unsqueeze(1).float().to(self.device)
+                d3 = d3.log()
+                d3 = (d3 - self.dataset.single_mean) / self.dataset.single_std
+                d3 = d3.unsqueeze(1).float().to(self.device)
+                b2 = torch.zeros(x2.shape[0]).unsqueeze(1).float().to(self.device)
+                b3 = torch.ones(x2.shape[0]).unsqueeze(1).float().to(self.device)
+                mu_2, logvar_2, z2, rec = self.model(x2, d2, b=b2)
+                c1, c2 = get_cos(x1,mu_2)
+                kld_algn = F.mse_loss(c1, c2, reduction='mean')
+                total_iter += 1
+                pos_weight = torch.Tensor([self.pos_w]).to(self.device)
+                bce = nn.BCEWithLogitsLoss(pos_weight = pos_weight, reduction='mean')
+                # zinb = F.mse_loss(rec_x, torch.log(x1 + 1), reduction='sum')
+                rec_loss = bce(rec, x2) + kld_algn*self.GAMMA
+                rec_loss.backward()
+                if total_iter % 3 == 0:
+                    mu_3, logvar_3, z3, rec3 = self.model(x3, d3, b=b3)
+                    bce3 = F.binary_cross_entropy_with_logits(rec3, x3, weight=pos_weight, reduction='mean')
+                    bce3.backward()
+                self.optim.step()
+                if total_iter%50 == 0:
+                    self.pbar.write(f'[{total_iter}] vae_recon_loss:{rec_loss.item()}')
+            self.pbar.update(1)
+        torch.save(self.model.module.state_dict(), os.path.join(self.ckpt_dir, 'warmup.pt'))
+        self.pbar.write("[Warmup Finished]")
+        self.pbar.close()
+
     def hybrid_train(self):
         if not os.path.exists(self.ckpt_dir):
             print(f'Making dir {self.ckpt_dir}')
@@ -197,10 +239,7 @@ class PlTrainer(object):
                 rec_loss = bce
                 m_kld2 = apprx_kl(mu_2, torch.exp(logvar_2).sqrt()).mean() - 0.5 * self.z_dim
                 m_kld = m_kld2
-                if SAILER:
-                    loss = kld_z*kl_w + rec_loss + m_kld*kl_w
-                else:
-                    loss = kld_z*kl_w + rec_loss + m_kld*kl_w + kld_algn*self.GAMMA
+                loss = kld_z*kl_w + rec_loss + m_kld*kl_w + kld_algn*self.GAMMA
                 loss.backward(retain_graph=True)
                 self.optim.step()
                 if total_iter % 3 == 0:

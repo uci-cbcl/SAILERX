@@ -32,7 +32,7 @@ SAILERX
 ```
 
 ## Standard training
-To train with one multimodal sc-deq data (scRNA-seq + scATAC-seq). UsingW PBMC 10k as an example.
+To train with one multimodal sc-deq data (scRNA-seq + scATAC-seq). Using PBMC 10k as an example.
 ```
 python train.py -d pbmc10k.h5 -cuda 0 --pos_w 20
 ```
