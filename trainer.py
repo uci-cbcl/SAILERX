@@ -1,4 +1,3 @@
-from pickle import FALSE
 import numpy as np
 import pandas as pd 
 
@@ -10,18 +9,18 @@ import torch.optim as optim
 from tqdm import tqdm
 import time
 import torch.nn as nn
-from torch.distributions import Normal, Bernoulli, kl_divergence as kl
+from torch.distributions import Normal,kl_divergence as kl
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import LambdaLR
 
-from dataset import ChSplitDS
-from model import VAE2, VAECount, AlignedVAE, NormAlignedVAE, VAEInv, VAESplit
+from dataset import ChSplitDS, HybridDS
+from model import VAEInv, VAESplit
 
 from utils import apprx_kl, get_cos
 
 
-WARM_UP = 1#10
+WARM_UP = 10
 CYCLE = 100
 SAILER = False
 LR_LMD = 0.995
@@ -36,7 +35,7 @@ class PlTrainer(object):
         self.log = args.log
         self.out_every = args.out_every
         self.pos_w = args.pos_w
-        if args.cuda_dev:
+        if args.cuda_dev is not None:
             torch.cuda.set_device(args.cuda_dev)
             self.cuda_dev = f'cuda:{args.cuda_dev}'
             self.device = 'cuda'
@@ -49,7 +48,10 @@ class PlTrainer(object):
         self.start_save = args.start_save
         self.start_epoch = args.start_epoch
         self.ckpt_dir = os.path.join(args.ckpt_dir, self.name)
-        self.dataset = ChSplitDS(args.data_type, batch=args.sample_batch)
+        if args.train_type == 'multi':
+            self.dataset = ChSplitDS(args.data_type, batch=args.sample_batch)
+        else:
+            self.dataset = HybridDS(args.data_type)
         self.batch_effect = args.sample_batch
         self.LAMBDA = args.LAMBDA
         self.GAMMA = args.GAMMA
@@ -67,8 +69,8 @@ class PlTrainer(object):
         else:
             self.de_batch = False
             self.vae = VAESplit(input_dim2, args.z_dim)
-            self.vaeI = VAEInv(self.vae)
-            self.model = nn.DataParallel(self.vaeI, device_ids=self.cuda_dev)
+        self.vaeI = VAEInv(self.vae)
+        self.model = nn.DataParallel(self.vaeI, device_ids=[self.cuda_dev])
         if args.load_ckpt:
             if os.path.isfile(args.load_ckpt):
                 print('Loading ' + args.load_ckpt)
@@ -133,7 +135,6 @@ class PlTrainer(object):
                     mu_2, logvar_2, z2, rec = self.model(x2_in, d2, l)
                 else:
                     mu_2, logvar_2, z2, rec = self.model(x2_in, d2)
-                mu_2, logvar_2, z2, rec = self.model(x2_in, d2)
                 c1, c2 = get_cos(x1,mu_2)
                 kld_algn = F.mse_loss(c1, c2, reduction='mean')
                 total_iter += 1
@@ -201,7 +202,7 @@ class PlTrainer(object):
             os.makedirs(self.ckpt_dir)
         self.model.train()
         kl_list, rec_list, align_list, mkl_list = [], [], [], []
-        print('Semi Contrasive Training started')
+        print('Training started')
         self.pbar = tqdm(total=self.max_epoch)
         total_iter = (self.start_epoch-1) * self.dataset.__len__() // self.batch_size + 1
         for epoch in range(self.start_epoch, self.start_epoch + self.max_epoch):
@@ -289,7 +290,7 @@ class PlTrainer(object):
             os.makedirs(self.ckpt_dir)
         self.model.train()
         kl_list, rec_list, align_list, mkl_list = [], [], [], []
-        print('Contrasive Training started')
+        print('Training started')
         self.pbar = tqdm(total=self.max_epoch)
         total_iter = (self.start_epoch-1) * self.dataset.__len__() // self.batch_size + 1
         for epoch in range(self.start_epoch, self.start_epoch + self.max_epoch):
