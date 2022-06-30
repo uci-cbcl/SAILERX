@@ -21,7 +21,7 @@ from model import VAE2, VAECount, AlignedVAE, NormAlignedVAE, VAEInv, VAESplit
 from utils import apprx_kl, get_cos
 
 
-WARM_UP = 10
+WARM_UP = 1#10
 CYCLE = 100
 SAILER = False
 LR_LMD = 0.995
@@ -56,7 +56,7 @@ class PlTrainer(object):
         self.dataloader =  DataLoader(self.dataset,
                                         batch_size=args.batch_size,
                                         shuffle=True,
-                                        num_workers=0, #2*len(args.cuda_dev),
+                                        num_workers=0, 
                                         pin_memory=True,
                                         drop_last=True)
         input_dim1 = self.dataset.padto1
@@ -68,7 +68,7 @@ class PlTrainer(object):
             self.de_batch = False
             self.vae = VAESplit(input_dim2, args.z_dim)
             self.vaeI = VAEInv(self.vae)
-            self.model = nn.DataParallel(self.vaeI, device_ids=args.cuda_dev)
+            self.model = nn.DataParallel(self.vaeI, device_ids=self.cuda_dev)
         if args.load_ckpt:
             if os.path.isfile(args.load_ckpt):
                 print('Loading ' + args.load_ckpt)
@@ -80,9 +80,8 @@ class PlTrainer(object):
             else:
                 raise Exception(args.load_ckpt + "\nckpt does not exist!")
         self.model.to(self.device)
-        if args.optimizer == 'adam':
-            self.optim = optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.cycle = CYCLE * self.dataset.__len__() // self.batch_size // len(args.cuda_dev)
+        self.optim = optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.cycle = CYCLE * self.dataset.__len__() // self.batch_size
         lr_lmd = lambda epoch: LR_LMD**epoch
         self.le_scdlr = LambdaLR(self.optim, lr_lambda=lr_lmd)
         self.le_scdlr.last_epoch = self.start_epoch-1
@@ -356,4 +355,21 @@ class PlTrainer(object):
         self.pbar.write("[Training Finished]")
         self.pbar.close()
 
+    def encode_latent(self, batch_size=2000):
+        self.model.eval()
+        dataloader =  DataLoader(self.dataset,
+                                batch_size=batch_size,
+                                shuffle=False,
+                                num_workers=0,
+                                pin_memory=True,
+                                drop_last=False)
+        latent_y = torch.zeros(self.dataset.__len__(), self.z_dim, device=self.device)
+        for i, dp in tqdm(enumerate(dataloader)):
+            _, x2, _, _, d2 = dp
+            x2 = x2.float().to(self.device)
+            with torch.no_grad():
+                # y_mean, _ = self.model(x2, d2, no_rec=True)
+                y_mean, _ = self.model.module.vae(x2, d2, no_rec=True)
+                latent_y[i*batch_size: (i+1)*batch_size] = y_mean
+        return latent_y
     

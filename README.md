@@ -34,17 +34,17 @@ SAILERX
 ## Standard training
 To train with one multimodal sc-deq data (scRNA-seq + scATAC-seq). Using PBMC 10k as an example.
 ```
-python train.py -d pbmc10k.h5 -cuda 0 --pos_w 20
+python train.py -d pbmc10k -cuda 0 --pos_w 20
 ```
 
 ## Training with data from two batches
 To train with multiple multimodal sc-deq data (scRNA-seq + scATAC-seq). Using PBMC 10k + 3k as an example.
 ```
-python train.py -d pbmc_batch.h5 -cuda 0 --pos_w 20 -batch True
+python train.py -d pbmc_batch -cuda 0 --pos_w 20 -batch True
 ```
 
 ## Hybrid training
 To train with multiple multimodal sc-deq data (scRNA-seq + scATAC-seq). Using PBMC 10k + 3k as an example.
 ```
-python train.py -d pbmc_hybrid.h5 -cuda 0 --pos_w 20 -batch True -t hybrid
+python train.py -d pbmc_hybrid -cuda 0 --pos_w 20 -batch True -t hybrid
 ```

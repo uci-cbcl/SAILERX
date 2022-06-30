@@ -11,10 +11,10 @@ from torch.utils.data import Dataset
 class ChSplitDS(Dataset):
     def __init__(self, name, ref='pca', batch=False):
         super(ChSplitDS, self).__init__()
-        if not os.path.isfile(f'data/{name}.h5'):
+        if not os.path.isfile(f'./data/{name}.h5'):
             raise Exception(f'Dataset {name} does not exist!')
         tic = time.time()
-        f = h5py.File(f'Data/{name}.h5','r')
+        f = h5py.File(f'./data/{name}.h5','r')
         self.rna_data = f[f'{ref}']['data'][:]
         g_atac = f['atac']
         self.atac_data = csr_matrix((g_atac['data'][:], g_atac['indices'][:], g_atac['indptr'][:]), g_atac.attrs['shape'])
