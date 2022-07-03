@@ -53,7 +53,7 @@ python train.py -d pbmc_hybrid -cuda 0 --pos_w 20 -batch True -t hybrid
 ### Evaluation
 To generate the embedding, please use the following command to load a specific model you want, subsititute PATH_TO_CKPT to the path to the ckpt you want to use (i.e., `./models/main/398.pt`).
 ```
-python eval.py -d pbmc10k --name main -cuda 3 -l PATH_TO_CKPT
+python eval.py -d pbmc10k --name main -cuda 0 -l PATH_TO_CKPT
 ```
 For more info, please use
 ```
