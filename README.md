@@ -48,3 +48,9 @@ To train with multiple multimodal sc-deq data (scRNA-seq + scATAC-seq). Using PB
 ```
 python train.py -d pbmc_hybrid -cuda 0 --pos_w 20 -batch True -t hybrid
 ```
+
+For more info, please use
+```
+python train.py -h
+```
+or see examples [here](https://github.com/uci-cbcl/SAILERX/tree/main/notebooks).
