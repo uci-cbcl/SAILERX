@@ -1,5 +1,5 @@
 # SAILERX
-Pytorch implementation for SAILERX
+Pytorch implementation and tutorial for SAILERX
 
 ## Setup
 
@@ -66,4 +66,4 @@ For more info, please use
 ```
 python train.py -h
 ```
-Or see examples [here](https://github.com/uci-cbcl/SAILERX/tree/main/notebooks).
+Or see evaluation examples [here](https://github.com/uci-cbcl/SAILERX/tree/main/notebooks).
