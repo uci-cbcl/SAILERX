@@ -1,5 +1,5 @@
 # SAILERX
-Pytorch implementation and tutorial for SAILERX
+Pytorch implementation and tutorial for SAILERX.
 
 ## Setup
 
