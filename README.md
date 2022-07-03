@@ -32,6 +32,12 @@ SAILERX
 ```
 
 ## Usage
+
+For full description, please see
+```
+python train.py -h
+```
+
 ### Standard training
 To train with one multimodal sc-deq data (scRNA-seq + scATAC-seq). Using PBMC 10k as an example.
 ```
@@ -55,6 +61,7 @@ To generate the embedding, please use the following command to load a specific m
 ```
 python eval.py -d pbmc10k --name main -cuda 0 -l PATH_TO_CKPT
 ```
+
 For more info, please use
 ```
 python train.py -h
